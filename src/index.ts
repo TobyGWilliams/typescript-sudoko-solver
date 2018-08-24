@@ -31,16 +31,17 @@ export class Sudoko {
     } while (this.dirty);
   }
   public eliminateCell(c: Cell): boolean {
-    let dirty = false;
-    this.getRow(c.position.x)
-      .concat(this.getColumn(c.position.y))
-      .concat(this.getSquare(c.position))
-      .forEach((e: Cell) => {
-        if (e.value && this.getPosition(c.position).eliminateValue(e.value)) {
-          dirty = true;
-        }
-      });
-    return dirty;
+    if (c.value) {
+      return false;
+    }
+    return c.eliminateArray(
+      this.getSupportingCells(c)
+        .map((val: Cell) => val.value)
+        .filter(
+          (val, pos, array): val is number =>
+            array.indexOf(val) === pos && val !== undefined
+        )
+    );
   }
   public getPosition(position: Position): Cell {
     return this.cells.filter((c: Cell) => {
@@ -50,8 +51,10 @@ export class Sudoko {
   public getSquare(position: Position): Cell[] {
     return this.cells.filter((e: Cell) => {
       return (
-        Math.floor(e.position.x / 3) === position.x &&
-        Math.floor(e.position.y / 3) === position.y
+        Math.floor(e.position.x / 3) === Math.floor(position.x / 3) &&
+        Math.floor(e.position.y / 3) === Math.floor(position.y / 3)
+        // Math.floor(e.position.x / 3) === position.x &&
+        // Math.floor(e.position.y / 3) === position.y
       );
     });
   }
@@ -73,6 +76,11 @@ export class Sudoko {
     }
     return output;
   }
+  public getSupportingCells(c: Cell): Cell[] {
+    return this.getRow(c.position.x)
+      .concat(this.getColumn(c.position.y))
+      .concat(this.getSquare(c.position));
+  }
 }
 
 export class Cell {
@@ -86,17 +94,33 @@ export class Cell {
     return this.value || '-';
   }
   public eliminateValue(val: number): boolean {
+    if (this.value) {
+      throw new Error('Tried to eliminate on a cell with set value');
+    }
     let dirty: boolean = false;
     this.options[val - 1] = false;
     if (
-      this.options.filter(e => {
+      this.options.filter((e: boolean) => {
         return e;
-      }).length === 1
+      }).length === 0
     ) {
-      const guess = this.options.indexOf(true) + 1;
-      this.value = guess;
+      throw new Error('All potential values eliminated');
+    }
+    if (this.options.filter(e => e).length === 1) {
+      this.value = this.options.indexOf(true) + 1;
       dirty = true;
     }
+    return dirty;
+  }
+  public eliminateArray(val: number[]): boolean {
+    let dirty = false;
+    val.forEach(element => {
+      if (this.value === undefined) {
+        if (this.eliminateValue(element)) {
+          dirty = true;
+        }
+      }
+    });
     return dirty;
   }
 }
